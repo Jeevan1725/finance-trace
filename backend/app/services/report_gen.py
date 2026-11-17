@@ -17,6 +17,7 @@ from app.models.account import Account
 from app.models.transaction import Transaction
 from app.models.document import Document
 from app.models.audit import AuditLog
+from app.services.forensics import analyze_case
 
 
 def _rs(amount) -> str:
@@ -127,8 +128,31 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(st)
     story.append(Spacer(1, 12))
 
+
+    # --- NEW: Forensic Findings ---
+    alerts = analyze_case(db, case_id)
+    story.append(Paragraph("2. Key Forensic Findings", h2))
+    if alerts:
+        alert_data = [["Severity", "Finding"]]
+        for a in alerts:
+            alert_data.append([a["severity"], a["message"]])
+        al_table = Table(alert_data, colWidths=[25*mm, 150*mm])
+        al_table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#b91c1c")),
+            ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE", (0,0), (-1,-1), 9),
+            ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+            ("TEXTCOLOR", (0,1), (0,-1), colors.HexColor("#b91c1c")), # Red severity
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ]))
+        story.append(al_table)
+    else:
+        story.append(Paragraph("No suspicious patterns detected with current rule set.", body))
+    story.append(PageBreak())
+
     # Parties
-    story.append(Paragraph("2. Parties Identified", h2))
+    story.append(Paragraph("3. Parties Identified", h2))
     party_data = [["Type", "Name", "PAN", "DIN/CIN", "Role"]]
     for p in persons:
         party_data.append(["Person", p.full_name, p.pan or "-", p.din or "-", p.role])
@@ -149,7 +173,7 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(Spacer(1, 10))
 
     # Accounts
-    story.append(Paragraph("3. Bank Accounts Identified", h2))
+    story.append(Paragraph("4. Bank Accounts Identified", h2))
     acc_data = [["Last 4", "Bank", "Type", "Belongs To"]]
     for a in accounts:
         name = entity_names.get((a.entity_type, str(a.entity_id)))
@@ -167,7 +191,7 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(PageBreak())
 
     # Flow Matrix
-    story.append(Paragraph("4. Fund-Flow Matrix (Source to Destination)", h2))
+    story.append(Paragraph("5. Fund-Flow Matrix (Source to Destination)", h2))
     if edge_map:
         flow_data = [["From", "To", "Txns", "Total Amount"]]
         for (src, dst), agg in sorted(edge_map.items(), key=lambda kv: -float(kv[1]["total"])):
@@ -194,7 +218,7 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(PageBreak())
 
     # Transaction Log
-    story.append(Paragraph("5. Chronological Transaction Log", h2))
+    story.append(Paragraph("6. Chronological Transaction Log", h2))
     txn_data = [["Date", "Amount", "Dir", "Mode", "Counterparty / Narration"]]
     for t in txns[:200]:
         txn_data.append([
@@ -220,7 +244,7 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(PageBreak())
 
     # Chain of Custody
-    story.append(Paragraph("6. Document Chain of Custody", h2))
+    story.append(Paragraph("7. Document Chain of Custody", h2))
     doc_data = [["File", "Type", "Size", "SHA-256 Hash", "Uploaded"]]
     for d in docs:
         doc_data.append([
@@ -243,7 +267,7 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     story.append(Spacer(1, 10))
 
     # Audit Trail
-    story.append(Paragraph("7. Audit Trail (last 30 actions)", h2))
+    story.append(Paragraph("8. Audit Trail (last 30 actions)", h2))
     audit_data = [["Time", "Action", "Target", "Actor"]]
     for a in audits[-30:]:
         audit_data.append([

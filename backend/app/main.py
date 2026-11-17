@@ -5,7 +5,7 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.routers import (
     cases, entities, relationships, documents,
-    transactions, accounts, graph, reports
+    transactions, accounts, graph, reports, alerts
 )
 
 settings = get_settings()
@@ -24,16 +24,8 @@ app.include_router(transactions.router)
 app.include_router(accounts.router)
 app.include_router(graph.router)
 app.include_router(reports.router)
-
+app.include_router(alerts.router)
 
 @app.get("/health", tags=["system"])
 def health():
     return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENV}
-
-
-@app.get("/graph-ui", response_class=HTMLResponse, include_in_schema=False)
-def graph_ui():
-    p = Path("/app/app/static/graph.html")
-    if p.exists():
-        return p.read_text(encoding="utf-8")
-    return "<h1>Graph UI not found</h1>"
