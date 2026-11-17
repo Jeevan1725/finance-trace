@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.case import Case
 from app.models.account import Account
+from app.models.entity import Person, Company
 from app.models.transaction import Transaction
 
 router = APIRouter(prefix="/cases/{case_id}/graph", tags=["graph"])
@@ -17,15 +18,32 @@ def get_graph(case_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Case not found")
 
     accounts = db.query(Account).filter(Account.case_id == case_id).all()
-    nodes = [
-        {
+    persons = {str(p.id): p.full_name for p in db.query(Person).filter(Person.case_id == case_id).all()}
+    companies = {str(c.id): c.name for c in db.query(Company).filter(Company.case_id == case_id).all()}
+
+    nodes = []
+    for a in accounts:
+        entity_name = None
+        if a.entity_type == "PERSON":
+            entity_name = persons.get(str(a.entity_id))
+        elif a.entity_type == "COMPANY":
+            entity_name = companies.get(str(a.entity_id))
+
+        # Label: if entity known, use name + *last4, else *last4
+        if entity_name:
+            label = entity_name[:18] + " *" + (a.account_last4 or "????")
+        else:
+            label = "*" + (a.account_last4 or "????")
+
+        nodes.append({
             "id": str(a.id),
-            "label": "*" + (a.account_last4 or "????"),
+            "label": label,
+            "account_last4": a.account_last4,
             "account_type": a.account_type,
             "bank": a.bank_name or "?",
-        }
-        for a in accounts
-    ]
+            "entity_type": a.entity_type,
+            "entity_name": entity_name,
+        })
 
     txns = db.query(Transaction).filter(Transaction.case_id == case_id).all()
     edge_map = defaultdict(lambda: {"count": 0, "total": 0.0, "min_date": None, "max_date": None})

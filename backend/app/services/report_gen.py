@@ -38,6 +38,22 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     docs = db.query(Document).filter(Document.case_id == case_id).all()
     audits = db.query(AuditLog).filter(AuditLog.case_id == case_id).order_by(AuditLog.created_at).all()
 
+    # Entity name lookup
+    entity_names = {}
+    for p in persons:
+        entity_names[("PERSON", str(p.id))] = p.full_name
+    for c in companies:
+        entity_names[("COMPANY", str(c.id))] = c.name
+
+    def _acc_label(acc):
+        if not acc:
+            return "???"
+        name = entity_names.get((acc.entity_type, str(acc.entity_id)))
+        if name:
+            return name[:22] + " (*" + (acc.account_last4 or "????") + ")"
+        return "*" + (acc.account_last4 or "????")
+
+    # Aggregate flows
     edge_map = defaultdict(lambda: {"count": 0, "total": Decimal(0)})
     total_credit = Decimal(0)
     total_debit = Decimal(0)
@@ -134,11 +150,12 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
 
     # Accounts
     story.append(Paragraph("3. Bank Accounts Identified", h2))
-    acc_data = [["Last 4", "Bank", "Type", "Entity"]]
+    acc_data = [["Last 4", "Bank", "Type", "Belongs To"]]
     for a in accounts:
-        acc_data.append([a.account_last4 or "-", a.bank_name or "-", a.account_type, a.entity_type])
+        name = entity_names.get((a.entity_type, str(a.entity_id)))
+        acc_data.append([a.account_last4 or "-", a.bank_name or "-", a.account_type, name or a.entity_type])
     if len(acc_data) > 1:
-        at = Table(acc_data, colWidths=[30*mm, 60*mm, 40*mm, 40*mm])
+        at = Table(acc_data, colWidths=[30*mm, 50*mm, 40*mm, 50*mm])
         at.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1e40af")),
             ("TEXTCOLOR", (0,0), (-1,0), colors.white),
@@ -152,17 +169,17 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
     # Flow Matrix
     story.append(Paragraph("4. Fund-Flow Matrix (Source to Destination)", h2))
     if edge_map:
-        flow_data = [["From", "To", "Transactions", "Total Amount"]]
+        flow_data = [["From", "To", "Txns", "Total Amount"]]
         for (src, dst), agg in sorted(edge_map.items(), key=lambda kv: -float(kv[1]["total"])):
             src_acc = acc_by_id.get(src)
             dst_acc = acc_by_id.get(dst)
             flow_data.append([
-                "*" + (src_acc.account_last4 if src_acc else "???"),
-                "*" + (dst_acc.account_last4 if dst_acc else "???"),
+                _acc_label(src_acc),
+                _acc_label(dst_acc),
                 str(agg["count"]),
                 _rs(agg["total"]),
             ])
-        ft = Table(flow_data, colWidths=[35*mm, 35*mm, 30*mm, 50*mm])
+        ft = Table(flow_data, colWidths=[55*mm, 55*mm, 15*mm, 45*mm])
         ft.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1e40af")),
             ("TEXTCOLOR", (0,0), (-1,0), colors.white),
@@ -178,18 +195,17 @@ def generate_report(db: Session, case_id: uuid.UUID) -> bytes:
 
     # Transaction Log
     story.append(Paragraph("5. Chronological Transaction Log", h2))
-    txn_data = [["Date", "Amount", "Dir", "Mode", "Counterparty / Narration", "Doc"]]
+    txn_data = [["Date", "Amount", "Dir", "Mode", "Counterparty / Narration"]]
     for t in txns[:200]:
         txn_data.append([
             t.value_date.strftime("%d-%m-%Y"),
             _rs(t.amount),
             t.direction,
             t.mode or "-",
-            (t.narration_raw or "")[:60],
-            str(t.source_doc_id)[:8] if t.source_doc_id else "-",
+            (t.narration_raw or "")[:55],
         ])
     if len(txn_data) > 1:
-        tt = Table(txn_data, colWidths=[20*mm, 22*mm, 12*mm, 16*mm, 60*mm, 20*mm])
+        tt = Table(txn_data, colWidths=[20*mm, 25*mm, 14*mm, 18*mm, 95*mm])
         tt.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1e40af")),
             ("TEXTCOLOR", (0,0), (-1,0), colors.white),
