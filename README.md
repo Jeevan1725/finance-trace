@@ -1,4 +1,5 @@
-﻿# Finance Trace
+﻿
+# Finance Trace
 Financial analysis & fund-flow tracing platform.
 
 ## Run locally
