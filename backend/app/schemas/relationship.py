@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from pydantic import BaseModel, Field
 
@@ -15,11 +16,11 @@ class RelationshipCreate(BaseModel):
 
 
 class RelationshipOut(BaseModel):
-    id: str
+    id: uuid.UUID
     source_type: str
-    source_id: str
+    source_id: uuid.UUID
     target_type: str
-    target_id: str
+    target_id: uuid.UUID
     rel_type: str
     confidence: float
     asserted_by: str

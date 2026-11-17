@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -10,7 +11,7 @@ class CaseCreate(BaseModel):
 
 
 class CaseOut(BaseModel):
-    id: str
+    id: uuid.UUID
     case_number: str
     title: str
     description: str | None

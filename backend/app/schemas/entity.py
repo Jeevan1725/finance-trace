@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from pydantic import BaseModel, Field
 
@@ -19,7 +20,7 @@ class PersonCreate(BaseModel):
 
 
 class PersonOut(BaseModel):
-    id: str
+    id: uuid.UUID
     full_name: str
     role: str
     pan: str | None
@@ -42,7 +43,7 @@ class CompanyCreate(BaseModel):
 
 
 class CompanyOut(BaseModel):
-    id: str
+    id: uuid.UUID
     name: str
     pan: str | None
     tan: str | None
