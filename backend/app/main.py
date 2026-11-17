@@ -5,7 +5,7 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.routers import (
     cases, entities, relationships, documents,
-    transactions, accounts, graph, reports, alerts
+    transactions, accounts, graph, reports, alerts, auth
 )
 
 settings = get_settings()
@@ -16,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"], allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(cases.router)
 app.include_router(entities.router)
 app.include_router(relationships.router)
@@ -26,23 +27,21 @@ app.include_router(graph.router)
 app.include_router(reports.router)
 app.include_router(alerts.router)
 
-
 @app.get("/health", tags=["system"])
 def health():
     return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENV}
 
-
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
     p = Path("/app/app/static/dashboard.html")
-    if p.exists():
-        return p.read_text(encoding="utf-8")
-    return "<h1>Dashboard not found</h1>"
+    return p.read_text(encoding="utf-8") if p.exists() else "<h1>Not found</h1>"
 
+@app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+def login_page():
+    p = Path("/app/app/static/login.html")
+    return p.read_text(encoding="utf-8") if p.exists() else "<h1>Not found</h1>"
 
 @app.get("/graph-ui", response_class=HTMLResponse, include_in_schema=False)
 def graph_ui():
     p = Path("/app/app/static/graph.html")
-    if p.exists():
-        return p.read_text(encoding="utf-8")
-    return "<h1>Graph UI not found</h1>"
+    return p.read_text(encoding="utf-8") if p.exists() else "<h1>Not found</h1>"

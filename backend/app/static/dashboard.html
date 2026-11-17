@@ -10,7 +10,12 @@
 
 <nav class="bg-slate-900 text-white p-4 shadow-lg flex justify-between items-center">
   <h1 class="text-2xl font-bold tracking-tight">?? Finance Trace</h1>
-  <span class="text-sm text-slate-400">Forensic Analysis Engine</span>
+  
+  <div class="flex items-center gap-4">
+    <span class="text-sm text-slate-300">Welcome, <strong id="nav-user"></strong></span>
+    <button onclick="logout()" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Logout</button>
+  </div>
+
 </nav>
 
 <div class="container mx-auto p-6 max-w-6xl">
@@ -135,11 +140,35 @@
 </div>
 
 <script>
+
+// --- AUTHENTICATION ---
+const token = localStorage.getItem('token');
+if (!token) { window.location.href = '/login'; }
+
+function getHeaders() {
+    return { 'Authorization': 'Bearer ' + token };
+}
+
+function logout() {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+}
+
+// Wrap fetch to always include token
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (url.startsWith('/')) options.headers['Authorization'] = 'Bearer ' + token;
+    return originalFetch(url, options);
+};
+// -----------------------
+
 const API = ""; 
 let currentCaseId = null;
+
 let currentEntities = [];
 
-window.onload = () => loadCases();
+window.onload = () => { document.getElementById("nav-user").innerText = localStorage.getItem("user_name") || "User"; loadCases(); }
 
 function showCreateCase() { document.getElementById('create-case-form').classList.remove('hidden'); }
 function hideCreateCase() { document.getElementById('create-case-form').classList.add('hidden'); }
