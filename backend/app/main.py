@@ -3,7 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pathlib import Path
 from app.core.config import get_settings
-from app.routers import cases, entities, relationships, documents, transactions, accounts, graph
+from app.routers import (
+    cases, entities, relationships, documents,
+    transactions, accounts, graph, reports
+)
 
 settings = get_settings()
 app = FastAPI(title=settings.APP_NAME, version="0.1.0")
@@ -20,6 +23,7 @@ app.include_router(documents.router)
 app.include_router(transactions.router)
 app.include_router(accounts.router)
 app.include_router(graph.router)
+app.include_router(reports.router)
 
 
 @app.get("/health", tags=["system"])
