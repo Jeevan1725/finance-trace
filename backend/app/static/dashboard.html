@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Trace - Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+<nav class="bg-slate-900 text-white p-4 shadow-lg flex justify-between items-center">
+  <h1 class="text-2xl font-bold tracking-tight">?? Finance Trace</h1>
+  <span class="text-sm text-slate-400">Forensic Analysis Engine</span>
+</nav>
+
+<div class="container mx-auto p-6 max-w-6xl">
+  
+  <div id="view-cases">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-bold text-slate-800">Active Cases</h2>
+      <button onclick="showCreateCase()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow font-medium transition">+ New Case</button>
+    </div>
+
+    <div id="create-case-form" class="hidden bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-blue-500">
+      <h3 class="font-bold text-lg mb-4">Create New Case</h3>
+      <input type="text" id="new-case-number" placeholder="Case Number (e.g. CASE-002)" class="w-full border p-2 rounded mb-3">
+      <input type="text" id="new-case-title" placeholder="Title (e.g. Aryan Promoters Investigation)" class="w-full border p-2 rounded mb-3">
+      <textarea id="new-case-desc" placeholder="Description" class="w-full border p-2 rounded mb-3"></textarea>
+      <div class="flex gap-2">
+        <button onclick="createCase()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Save</button>
+        <button onclick="hideCreateCase()" class="bg-slate-400 hover:bg-slate-500 text-white px-4 py-2 rounded">Cancel</button>
+      </div>
+    </div>
+
+    <div id="cases-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="text-slate-500 p-4">Loading cases...</div>
+    </div>
+  </div>
+
+  <div id="view-detail" class="hidden">
+    <button onclick="backToCases()" class="text-blue-600 hover:underline mb-4 flex items-center gap-1 font-medium">&larr; Back to Cases</button>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6 border-t-4 border-blue-600">
+      <h2 id="detail-title" class="text-2xl font-bold text-slate-800 mb-1">Case Title</h2>
+      <p id="detail-number" class="text-slate-500 font-mono text-sm mb-4">CASE-XXX</p>
+      <div class="flex gap-3 mt-4">
+        <a id="btn-report" href="#" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow font-medium transition">?? Download PDF Report</a>
+        <a id="btn-graph" href="#" target="_blank" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded shadow font-medium transition">??? View Graph</a>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h3 class="font-bold text-lg mb-4 border-b pb-2">?? Upload Document</h3>
+      <div class="flex flex-col md:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Document Type</label>
+          <select id="doc-type" class="w-full border p-2 rounded">
+            <option value="BANK_STMT">Bank Statement</option>
+            <option value="ITR">ITR</option>
+            <option value="SALE_DEED">Sale Deed</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-slate-700 mb-1">File (PDF)</label>
+          <input type="file" id="doc-file" accept=".pdf" class="w-full border p-1.5 rounded bg-slate-50">
+        </div>
+        <button onclick="uploadDocument()" id="btn-upload" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow">Upload</button>
+      </div>
+      <p id="upload-status" class="text-sm mt-2 text-blue-600 hidden"></p>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h3 class="font-bold text-lg mb-4 border-b pb-2">?? Documents</h3>
+      <div id="docs-list" class="text-slate-500 text-sm">Loading documents...</div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h3 class="font-bold text-lg mb-4 border-b pb-2">?? Forensic Alerts</h3>
+      <div id="alerts-list" class="space-y-2 text-sm">Loading alerts...</div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+      <h3 class="font-bold text-lg mb-4 border-b pb-2">?? Transactions (Latest 20)</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="p-2 border-b">Date</th>
+              <th class="p-2 border-b">Amount</th>
+              <th class="p-2 border-b">Direction</th>
+              <th class="p-2 border-b">Narration</th>
+            </tr>
+          </thead>
+          <tbody id="txn-list">
+            <tr><td colspan="4" class="p-2 text-slate-500">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = ""; 
+let currentCaseId = null;
+
+window.onload = () => loadCases();
+
+function showCreateCase() { document.getElementById('create-case-form').classList.remove('hidden'); }
+function hideCreateCase() { document.getElementById('create-case-form').classList.add('hidden'); }
+
+async function loadCases() {
+  try {
+    const res = await fetch(`${API}/cases`);
+    const cases = await res.json();
+    const list = document.getElementById('cases-list');
+    list.innerHTML = "";
+    
+    if (cases.length === 0) {
+      list.innerHTML = `<div class="col-span-3 text-center p-8 bg-white rounded-lg shadow text-slate-500">No cases yet. Click "+ New Case" to start.</div>`;
+      return;
+    }
+
+    cases.forEach(c => {
+      const card = document.createElement('div');
+      card.className = "bg-white p-5 rounded-lg shadow-md border-l-4 border-blue-600 hover:shadow-lg transition cursor-pointer";
+      card.onclick = () => openCase(c.id, c.title, c.case_number);
+      card.innerHTML = `
+        <h3 class="font-bold text-lg text-slate-800 truncate">${c.title}</h3>
+        <p class="text-sm text-slate-500 mb-2">${c.case_number}</p>
+        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">${c.status.toUpperCase()}</span>
+      `;
+      list.appendChild(card);
+    });
+  } catch (e) {
+    console.error(e);
+    document.getElementById('cases-list').innerHTML = `<div class="text-red-500">Error loading cases.</div>`;
+  }
+}
+
+async function createCase() {
+  const num = document.getElementById('new-case-number').value;
+  const title = document.getElementById('new-case-title').value;
+  const desc = document.getElementById('new-case-desc').value;
+  
+  if (!num || !title) return alert("Number and Title are required");
+
+  const body = {
+    case_number: num,
+    title: title,
+    description: desc,
+    created_by: "00000000-0000-0000-0000-000000000001"
+  };
+
+  try {
+    const res = await fetch(`${API}/cases`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      hideCreateCase();
+      loadCases();
+    } else {
+      const err = await res.json();
+      alert("Error: " + (err.detail || "Failed to create"));
+    }
+  } catch (e) { alert("Network error"); }
+}
+
+function backToCases() {
+  document.getElementById('view-detail').classList.add('hidden');
+  document.getElementById('view-cases').classList.remove('hidden');
+  currentCaseId = null;
+  loadCases();
+}
+
+async function openCase(id, title, num) {
+  currentCaseId = id;
+  document.getElementById('view-cases').classList.add('hidden');
+  document.getElementById('view-detail').classList.remove('hidden');
+  document.getElementById('detail-title').innerText = title;
+  document.getElementById('detail-number').innerText = num;
+  document.getElementById('btn-report').href = `${API}/cases/${id}/report`;
+  document.getElementById('btn-graph').href = `${API}/graph-ui?case=${id}`;
+
+  loadDocuments(id);
+  loadAlerts(id);
+  loadTransactions(id);
+}
+
+async function loadDocuments(caseId) {
+  const res = await fetch(`${API}/cases/${caseId}/documents`);
+  const docs = await res.json();
+  const div = document.getElementById('docs-list');
+  if (docs.length === 0) { div.innerHTML = "No documents uploaded."; return; }
+  
+  div.innerHTML = docs.map(d => `
+    <div class="flex justify-between items-center border-b py-2">
+      <div>
+        <span class="font-medium text-slate-800">${d.file_name}</span>
+        <span class="text-xs bg-slate-200 px-2 py-0.5 rounded ml-2">${d.doc_type}</span>
+        <span class="text-xs text-slate-500 block font-mono mt-1">Hash: ${d.file_hash.substring(0, 16)}...</span>
+      </div>
+      <div>
+        ${d.parse_status === 'PENDING' || d.parse_status === 'FAILED' 
+          ? `<button onclick="parseDoc('${caseId}', '${d.id}')" class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded">Parse Now</button>` 
+          : `<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">PARSED</span>`}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function uploadDocument() {
+  const fileInput = document.getElementById('doc-file');
+  const type = document.getElementById('doc-type').value;
+  const status = document.getElementById('upload-status');
+  
+  if (fileInput.files.length === 0) return alert("Select a file first.");
+  
+  const formData = new FormData();
+  formData.append("doc_type", type);
+  formData.append("uploaded_by", "00000000-0000-0000-0000-000000000001");
+  formData.append("file", fileInput.files[0]);
+
+  status.classList.remove('hidden');
+  status.innerText = "Uploading and hashing file...";
+
+  try {
+    const res = await fetch(`${API}/cases/${currentCaseId}/documents`, { method: 'POST', body: formData });
+    if (res.ok) {
+      status.innerText = "Upload successful!";
+      fileInput.value = "";
+      setTimeout(() => status.classList.add('hidden'), 3000);
+      loadDocuments(currentCaseId);
+    } else {
+      status.innerText = "Upload failed.";
+      status.classList.add('text-red-600');
+    }
+  } catch (e) { status.innerText = "Error: " + e.message; }
+}
+
+async function parseDoc(caseId, docId) {
+  try {
+    const res = await fetch(`${API}/cases/${caseId}/documents/${docId}/parse`, { method: 'POST' });
+    if (res.ok) {
+      loadDocuments(caseId);
+      loadTransactions(caseId);
+      loadAlerts(caseId);
+    } else {
+      alert("Parsing failed. Check terminal.");
+    }
+  } catch (e) { alert("Error: " + e.message); }
+}
+
+async function loadAlerts(caseId) {
+  const res = await fetch(`${API}/cases/${caseId}/alerts`);
+  const alerts = await res.json();
+  const div = document.getElementById('alerts-list');
+  
+  if (alerts.length === 0) { div.innerHTML = `<span class="text-green-600">? No suspicious patterns detected.</span>`; return; }
+  
+  div.innerHTML = alerts.map(a => {
+    const color = a.severity === 'HIGH' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-yellow-50 text-yellow-800 border-yellow-200';
+    return `<div class="p-3 border rounded ${color} font-medium text-sm">${a.message}</div>`;
+  }).join('');
+}
+
+async function loadTransactions(caseId) {
+  const res = await fetch(`${API}/cases/${caseId}/transactions`);
+  const txns = await res.json();
+  const tbody = document.getElementById('txn-list');
+  
+  if (txns.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="p-2 text-slate-500">No transactions parsed yet.</td></tr>`; return; }
+  
+  tbody.innerHTML = txns.slice(0, 20).map(t => `
+    <tr class="hover:bg-slate-50 border-b">
+      <td class="p-2">${t.value_date}</td>
+      <td class="p-2 font-medium ${t.direction === 'CREDIT' ? 'text-green-600' : 'text-red-600'}">Rs. ${t.amount}</td>
+      <td class="p-2"><span class="text-xs bg-slate-200 px-2 py-1 rounded">${t.direction}</span></td>
+      <td class="p-2 text-slate-600 truncate max-w-xs" title="${t.narration}">${t.narration}</td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>
