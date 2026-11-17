@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
-from app.routers import cases, entities, relationships, documents
+from app.routers import cases, entities, relationships, documents, transactions
 
 settings = get_settings()
 app = FastAPI(title=settings.APP_NAME, version="0.1.0")
@@ -18,6 +18,7 @@ app.include_router(cases.router)
 app.include_router(entities.router)
 app.include_router(relationships.router)
 app.include_router(documents.router)
+app.include_router(transactions.router)
 
 
 @app.get("/health", tags=["system"])

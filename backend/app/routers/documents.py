@@ -1,8 +1,6 @@
 import uuid
 import hashlib
 import os
-import shutil
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -11,6 +9,7 @@ from app.models.case import Case
 from app.models.document import Document
 from app.schemas.document import DocumentOut
 from app.services.audit import log_action
+from app.services.parser_service import parse_document
 
 router = APIRouter(prefix="/cases/{case_id}/documents", tags=["documents"])
 settings = get_settings()
@@ -29,20 +28,15 @@ def upload_document(
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-
     if doc_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid doc_type. Must be one of: {ALLOWED_TYPES}")
 
-    # Read file into memory (cap at MAX_UPLOAD_MB)
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
     contents = file.file.read(max_bytes + 1)
     if len(contents) > max_bytes:
         raise HTTPException(status_code=413, detail=f"File exceeds {settings.MAX_UPLOAD_MB} MB limit")
 
-    # SHA-256 hash for chain of custody
     file_hash = hashlib.sha256(contents).hexdigest()
-
-    # Save to disk: uploads/{case_id}/{doc_id}_{filename}
     doc_id = uuid.uuid4()
     case_dir = os.path.join(settings.UPLOAD_DIR, str(case_id))
     os.makedirs(case_dir, exist_ok=True)
@@ -52,16 +46,10 @@ def upload_document(
     with open(storage_path, "wb") as f:
         f.write(contents)
 
-    # Persist metadata
     doc = Document(
-        id=doc_id,
-        case_id=case_id,
-        doc_type=doc_type,
-        file_name=file.filename,
-        file_hash=file_hash,
-        file_size=len(contents),
-        storage_path=storage_path,
-        uploaded_by=uuid.UUID(uploaded_by),
+        id=doc_id, case_id=case_id, doc_type=doc_type,
+        file_name=file.filename, file_hash=file_hash, file_size=len(contents),
+        storage_path=storage_path, uploaded_by=uuid.UUID(uploaded_by),
         parse_status="PENDING",
     )
     db.add(doc)
@@ -70,7 +58,6 @@ def upload_document(
 
     log_action(db, case_id, uuid.UUID(uploaded_by), "UPLOAD_DOCUMENT", "DOCUMENT", doc.id,
                {"file_name": doc.file_name, "doc_type": doc.doc_type, "hash": file_hash, "size": len(contents)})
-
     return doc
 
 
@@ -80,3 +67,13 @@ def list_documents(case_id: uuid.UUID, db: Session = Depends(get_db)):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     return db.query(Document).filter(Document.case_id == case_id).order_by(Document.uploaded_at.desc()).all()
+
+
+@router.post("/{doc_id}/parse")
+def parse_doc(case_id: uuid.UUID, doc_id: uuid.UUID, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == doc_id, Document.case_id == case_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    result = parse_document(db, doc)
+    log_action(db, case_id, doc.uploaded_by, "PARSE_DOCUMENT", "DOCUMENT", doc.id, result)
+    return result
